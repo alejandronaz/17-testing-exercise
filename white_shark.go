@@ -11,6 +11,8 @@ var (
 	ErrSharkIsNotHungry = errors.New("can not hunt, shark is not hungry")
 	// ErrSharkIsSlower indicates that the shark could not catch the prey
 	ErrSharkIsSlower = errors.New("can not hunt, shark is slower than the prey")
+	// ErrSharkThereIsNoTuna indicates that the shark could not catch the prey
+	ErrSharkThereIsNoTuna = errors.New("can not hunt, there is no tuna")
 )
 
 // NewWhiteShark creates a new WhiteShark
@@ -34,6 +36,12 @@ type WhiteShark struct {
 }
 
 func (w *WhiteShark) Hunt(tuna *Tuna) (err error) {
+	// check if there is a tuna
+	if tuna == nil {
+		err = ErrSharkThereIsNoTuna
+		return
+	}
+
 	// check if the shark can hunt
 	if !w.Hungry {
 		err = ErrSharkIsNotHungry
