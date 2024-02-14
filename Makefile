@@ -5,6 +5,10 @@ test:
 .PHONY: report
 report:
 	go test -coverprofile=coverage.out ./...
+	# Remove mock and stub files from coverage report
+	more coverage.out | grep -v "mock" | grep -v "stub" > coverage_filtered.out
+	rm coverage.out
+	mv coverage_filtered.out coverage.out
 
 .PHONY: html_report
 html_report: report
