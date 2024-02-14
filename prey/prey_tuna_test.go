@@ -21,7 +21,7 @@ func TestTuna_GetSpeed(t *testing.T) {
 		outputSpeed := 0.0
 		require.Equal(t, outputSpeed, output)
 	})
-	
+
 	t.Run("speed is greater than 0.0", func(t *testing.T) {
 		// arrange
 		impl := prey.NewTuna(252.0, nil)
@@ -46,7 +46,7 @@ func TestTuna_GetPosition(t *testing.T) {
 		// assert
 		require.Nil(t, output)
 	})
-	
+
 	t.Run("position is not nil", func(t *testing.T) {
 		// arrange
 		impl := prey.NewTuna(0.0, &positioner.Position{X: 0, Y: 0, Z: 0})
