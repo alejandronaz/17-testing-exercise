@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"testdoubles/internal/hunter"
 	"testdoubles/internal/positioner"
 	"testdoubles/internal/prey"
+	"testdoubles/internal/simulator"
 )
 
 // NewHunter returns a new Hunter handler.
@@ -31,9 +35,43 @@ func (h *Hunter) ConfigurePrey() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// request
 
+		// get the bytes from the request body
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error reading the request body"))
+			return
+		}
+
+		// convert the bytes to a map
+		var bodyMap map[string]any
+		if json.Unmarshal(bodyBytes, &bodyMap) != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("json is malformed"))
+			return
+		}
+
+		// validate the keys
+		if !validateKeyExistance(bodyMap, "speed", "position") {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("keys are missing"))
+			return
+		}
+
+		// convert the map to a struct
+		var body RequestBodyConfigPrey
+		if json.Unmarshal(bodyBytes, &body) != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("json types are wrong"))
+			return
+		}
+
 		// process
+		h.pr = prey.NewTuna(body.Speed, body.Position)
 
 		// response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("prey configured"))
 	}
 }
 
@@ -46,11 +84,54 @@ type RequestBodyConfigHunter struct {
 // ConfigureHunter configures the hunter.
 func (h *Hunter) ConfigureHunter() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// request
+		// get the bytes from the request body
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error reading the request body"))
+			return
+		}
+
+		// convert the bytes to a map
+		var bodyMap map[string]any
+		if json.Unmarshal(bodyBytes, &bodyMap) != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("json is malformed"))
+			return
+		}
+
+		// validate the keys
+		if !validateKeyExistance(bodyMap, "speed", "position") {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("keys are missing"))
+			return
+		}
+
+		// convert the map to a struct
+		var body RequestBodyConfigHunter
+		if json.Unmarshal(bodyBytes, &body) != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("json types are wrong"))
+			return
+		}
 
 		// process
+		// - simulator
+		cfgSim := simulator.ConfigCatchSimulatorDefault{
+			MaxTimeToCatch: 15.0,
+			Positioner:     positioner.NewPositionerDefault(),
+		}
+		sim := simulator.NewCatchSimulatorDefault(&cfgSim)
+		// - hunter
+		h.ht = hunter.NewWhiteShark(hunter.ConfigWhiteShark{
+			Speed:     body.Speed,
+			Position:  body.Position,
+			Simulator: sim,
+		})
 
 		// response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("hunter configured"))
 	}
 }
 
@@ -60,7 +141,31 @@ func (h *Hunter) Hunt() http.HandlerFunc {
 		// request
 
 		// process
+		if h.ht == nil || h.pr == nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("hunter or prey not configured"))
+			return
+		}
+
+		duration, err := h.ht.Hunt(h.pr)
+		if err != nil {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("could not hunt"))
+			return
+		}
 
 		// response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fmt.Sprintf("hunt done in %.2f", duration)))
 	}
+}
+
+func validateKeyExistance(m map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		_, ok := m[key]
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
